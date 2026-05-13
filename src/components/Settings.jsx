@@ -113,7 +113,7 @@ export default function Settings() {
             <input type="text"
               value={localToken}
               onChange={e => setLocalToken(e.target.value)}
-              placeholder="e.g. 7123456789:AAExxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              placeholder="Paste your Telegram bot token here"
             />
           </div>
 

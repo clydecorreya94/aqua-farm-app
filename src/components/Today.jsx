@@ -1,5 +1,6 @@
 import { useApp } from '../AppContext';
 import { SectionHead, Card, ProgressBar, Checkbox, AlertBanner } from './UI';
+import { GIFT_NATURAL_FEEDS } from '../data';
 
 const CAT_COLORS = {
   water:'#185FA5', health:'#DC2626', feed:'#854F0B',
@@ -23,8 +24,8 @@ function TaskRow({ id, label, sub, checked, cat, isWeekly }) {
 }
 
 export default function Today() {
-  const { state, sp, currentStage, dailyFeed, perMeal, meals, nextMeal, effectiveW, growthProjections } = useApp();
-  const { dailyChecked, weeklyChecked, fish, anchorDate } = state;
+  const { state, sp, currentStage, dailyFeed, perMeal, meals, nextMeal, effectiveW, growthProjections, projectionAnchorDate, tomorrowProjectedW, tomorrowStage, tomorrowDailyFeed, tomorrowPerMeal, tomorrowMeals } = useApp();
+  const { dailyChecked, weeklyChecked, fish } = state;
 
   const nm = nextMeal();
   const allIds = ['d1','d2','d3','d4','d5','d6','d7', ...meals.map((_,i) => 'm'+i)];
@@ -34,14 +35,25 @@ export default function Today() {
   const month = new Date().getMonth();
   const monsoon = [5,6,7,8].includes(month);
   const summer  = [2,3,4].includes(month);
+  const giftBand = effectiveW < 25 ? 'juvenile' : 'grower';
+  const naturalFeedOptions = fish === 'gift'
+    ? GIFT_NATURAL_FEEDS
+        .filter(item => effectiveW >= item.minWeight)
+        .map(item => ({
+          ...item,
+          pct: item.replacePct[giftBand],
+          grams: +((dailyFeed * item.replacePct[giftBand]) / 100).toFixed(1),
+          weeklyText: item.weekly[giftBand],
+        }))
+    : [];
 
   // Next 3 projections
   const upcomingMilestones = growthProjections.filter(p => p.daysFromNow > 0).slice(0, 3);
   const harvestMilestone   = growthProjections.find(p => p.isHarvest);
 
   // Days since anchor
-  const daysSinceLog = anchorDate
-    ? Math.floor((Date.now() - new Date(anchorDate)) / 86400000)
+  const daysSinceLog = projectionAnchorDate
+    ? Math.floor((Date.now() - new Date(projectionAnchorDate)) / 86400000)
     : null;
 
   return (
@@ -77,7 +89,7 @@ export default function Today() {
       </div>
 
       {/* Growth projection summary on dashboard */}
-      {anchorDate && upcomingMilestones.length > 0 && (
+      {projectionAnchorDate && upcomingMilestones.length > 0 && (
         <Card style={{ marginBottom:10 }}>
           <div style={{ padding:'14px 16px' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
@@ -104,7 +116,7 @@ export default function Today() {
             </div>
             <div style={{ fontSize:11, color:'var(--txt-3)', marginTop:10, lineHeight:1.6 }}>
               Current estimated weight: <strong style={{ color:sp.color }}>~{effectiveW.toFixed(1)}g</strong>
-              {anchorDate && ` · Based on ${new Date(anchorDate).toLocaleDateString('en-IN')}`}
+              {projectionAnchorDate && ` · Based on ${new Date(projectionAnchorDate).toLocaleDateString('en-IN')}`}
             </div>
           </div>
         </Card>
@@ -122,6 +134,68 @@ export default function Today() {
             checked={!!dailyChecked['m'+i]} cat="feed" />
         ))}
       </Card>
+
+      <SectionHead>Feed for tomorrow</SectionHead>
+      <Card>
+        <div style={{ padding:'14px 16px' }}>
+          <div style={{ display:'grid', gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)', gap:8, marginBottom:12 }}>
+            {[
+              ['Daily total', `${tomorrowDailyFeed}g`],
+              ['Per meal', `${tomorrowPerMeal}g`],
+              ['Stage', tomorrowStage.l],
+            ].map(([l, v]) => (
+              <div key={l} style={{ background:'var(--bg-surface)', borderRadius:10, padding:'10px 12px' }}>
+                <div style={{ fontSize:9.5, color:'var(--txt-3)', textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:4 }}>{l}</div>
+                <div style={{ fontSize:15, fontWeight:600, color:sp.color }}>{v}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize:12, color:'var(--txt-2)', lineHeight:1.6, marginBottom:10 }}>
+            Prepare tomorrow's feed based on an estimated weight of <strong style={{ color:'var(--txt-1)' }}>~{tomorrowProjectedW.toFixed(1)}g</strong>.
+          </div>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+            {tomorrowMeals.map((t, i) => (
+              <div key={i} style={{ background:sp.light, color:sp.dark, borderRadius:8, padding:'6px 10px', fontSize:11.5, fontWeight:500 }}>
+                Meal {i+1}: {tomorrowPerMeal}g at {t}
+              </div>
+            ))}
+          </div>
+        </div>
+      </Card>
+
+      {naturalFeedOptions.length > 0 && (
+        <>
+          <SectionHead>Natural feed today</SectionHead>
+          <Card>
+            <div style={{ padding:'14px 16px' }}>
+              <div style={{ fontSize:12, color:'var(--txt-2)', lineHeight:1.6, marginBottom:12 }}>
+                Optional green supplements for GIFT. Keep pellet feed as the base ration and stay within the suggested amount.
+              </div>
+              {naturalFeedOptions.map((item, i) => (
+                <div key={item.k} style={{ paddingBottom: i < naturalFeedOptions.length - 1 ? 12 : 0, marginBottom: i < naturalFeedOptions.length - 1 ? 12 : 0, borderBottom: i < naturalFeedOptions.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, marginBottom:6 }}>
+                    <div style={{ fontSize:13, fontWeight:600, color:sp.color }}>{item.n}</div>
+                    <div style={{ fontSize:11, color:sp.dark, background:sp.light, borderRadius:99, padding:'3px 8px', fontWeight:500 }}>{item.pct}% max</div>
+                  </div>
+                  <div style={{ display:'grid', gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr)', gap:8, marginBottom:6 }}>
+                    <div style={{ background:'var(--bg-surface)', borderRadius:9, padding:'9px 11px' }}>
+                      <div style={{ fontSize:9.5, color:'var(--txt-3)', textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:4 }}>Offer today</div>
+                      <div style={{ fontSize:15, fontWeight:600, color:sp.color }}>{item.grams}g</div>
+                    </div>
+                    <div style={{ background:'var(--bg-surface)', borderRadius:9, padding:'9px 11px' }}>
+                      <div style={{ fontSize:9.5, color:'var(--txt-3)', textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:4 }}>Frequency</div>
+                      <div style={{ fontSize:12.5, fontWeight:600, color:'var(--txt-1)' }}>{item.weeklyText}</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize:11.5, color:'var(--txt-2)', lineHeight:1.6 }}>
+                    {item.prep}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </>
+      )}
 
       {/* Daily checks */}
       <SectionHead>Daily checks</SectionHead>

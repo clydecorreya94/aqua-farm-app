@@ -3,8 +3,8 @@ import { SectionHead, Card, StatCard, GrowthRing, Sparkline, DeleteBtn } from '.
 import { CM_REF } from '../data';
 
 export default function Growth() {
-  const { state, dispatch, sp, currentStage, dailyFeed, perMeal, getStage, effectiveW, projectedW, growthProjections } = useApp();
-  const { avgW, cnt, growthLog, growthInput, cmInput, growthMode, anchorDate, anchorWeight } = state;
+  const { state, dispatch, sp, currentStage, dailyFeed, perMeal, getStage, effectiveW, projectedW, growthProjections, projectionAnchorDate, projectionAnchorWeight } = useApp();
+  const { avgW, cnt, growthLog, growthInput, cmInput, growthMode } = state;
 
   const tgt = sp.growth[sp.growth.length - 1].g;
   const pct = Math.min(100, Math.round((effectiveW / tgt) * 100));
@@ -35,7 +35,7 @@ export default function Growth() {
 
   // Suggestion based on current stage
   const suggestion = () => {
-    if (!anchorDate) return null;
+    if (!projectionAnchorDate) return null;
     const stage = getStage(effectiveW);
     const nextStage = sp.stages[sp.stages.indexOf(stage) + 1];
     const daysToNext = nextStage ? Math.ceil((nextStage.mn - effectiveW) / (sp.growthRatePerDay[stage.l] || 1)) : null;
@@ -71,7 +71,7 @@ export default function Growth() {
                 ~{effectiveW.toFixed(1)}g
                 <span style={{ fontSize:15, color:'var(--txt-2)', fontWeight:400, marginLeft:6 }}>/ {tgt}g</span>
               </div>
-              {anchorDate && projectedW !== avgW && (
+              {projectionAnchorDate && projectedW !== avgW && (
                 <div style={{ fontSize:11, color:'var(--txt-3)', marginTop:4 }}>
                   Last logged: {avgW}g · Projected today: ~{projectedW.toFixed(1)}g
                 </div>
@@ -192,9 +192,9 @@ export default function Growth() {
           <SectionHead>Growth projections</SectionHead>
           <Card>
             <div style={{ padding:'6px 0' }}>
-              {anchorDate && (
+              {projectionAnchorDate && (
                 <div style={{ padding:'10px 16px 6px', fontSize:11, color:'var(--txt-3)', borderBottom:'1px solid var(--border)' }}>
-                  Projected from {new Date(anchorDate).toLocaleDateString('en-IN')} · {anchorWeight}g starting weight
+                  Projected from {new Date(projectionAnchorDate).toLocaleDateString('en-IN')} · {projectionAnchorWeight}g starting weight
                 </div>
               )}
               {upcomingProjections.map((m, i) => (

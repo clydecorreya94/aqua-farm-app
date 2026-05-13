@@ -1,6 +1,6 @@
 import { useApp } from '../AppContext';
 import { SectionHead, Card, InfoRow, Chip, StatCard, DeleteBtn } from './UI';
-import { MEAL_TIMES, SHOPS, GOVT, TEMP_ADVICE, DISEASES } from '../data';
+import { MEAL_TIMES, SHOPS, GOVT, TEMP_ADVICE, DISEASES, GIFT_NATURAL_FEEDS, GIFT_NATURAL_FEED_TIPS, GIFT_NATURAL_FEED_AVOID, GIFT_NATURAL_FEED_DOS_DONTS } from '../data';
 
 const lbl = (text) => (
   <div style={{ fontSize:11, color:'var(--txt-3)', marginBottom:6, fontWeight:500, textTransform:'uppercase', letterSpacing:'0.04em' }}>{text}</div>
@@ -11,13 +11,14 @@ const lbl = (text) => (
 // ═══════════════════════════════════════════════════════════════════════════
 export function Feed() {
   const { state, dispatch, sp, getStage, feedW, feedC } = useApp();
-  const { feedWStr, feedCStr } = state;
+  const { feedWStr, feedCStr, fish } = state;
 
   const lSt    = getStage(feedW);
   const lBio   = feedC * feedW;
   const lDaily = +(lBio * lSt.r / 100).toFixed(1);
   const lMeal  = +(lDaily / lSt.m).toFixed(1);
   const meals  = MEAL_TIMES[lSt.m] || MEAL_TIMES[3];
+  const giftBand = feedW < 25 ? 'juvenile' : 'grower';
 
   return (
     <div className="page-content">
@@ -98,6 +99,78 @@ export function Feed() {
           </div>
         ))}
       </Card>
+
+      {fish === 'gift' && (
+        <>
+          <SectionHead>Natural feed add-ons</SectionHead>
+          <Card>
+            <div style={{ padding:'14px 16px' }}>
+              <div style={{ fontSize:12, color:'var(--txt-2)', lineHeight:1.7, marginBottom:12 }}>
+                Use these as <strong>supplements</strong> to pellet feed for GIFT. The amounts below are calculated from your current daily ration of <strong style={{ color:'var(--txt-1)' }}>{lDaily}g/day</strong>.
+              </div>
+              {GIFT_NATURAL_FEEDS.map((item, i) => {
+                const ready = feedW >= item.minWeight;
+                const pct = item.replacePct[giftBand];
+                const grams = +((lDaily * pct) / 100).toFixed(1);
+                return (
+                  <div key={item.k} style={{ padding: i < GIFT_NATURAL_FEEDS.length - 1 ? '0 0 14px' : '0', marginBottom: i < GIFT_NATURAL_FEEDS.length - 1 ? 14 : 0, borderBottom: i < GIFT_NATURAL_FEEDS.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:10, marginBottom:7 }}>
+                      <div>
+                        <div style={{ fontSize:14, fontWeight:600, color:sp.color }}>{item.n}</div>
+                        <div style={{ fontSize:11.5, color:'var(--txt-3)', marginTop:2 }}>{item.kind} · {item.bestFor}</div>
+                      </div>
+                      <Chip label={ready ? `${pct}% of today's ration` : `Wait until ${item.minWeight}g+`} color={ready ? sp.color : 'var(--c-warn)'} bg={ready ? sp.light : 'var(--c-warn-l)'} />
+                    </div>
+                    <div style={{ display:'grid', gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr)', gap:8, marginBottom:10 }}>
+                      <StatCard label="Offer" value={ready ? `${grams}g` : 'Not yet'} accent={sp.color} />
+                      <StatCard label="Frequency" value={item.weekly[giftBand]} accent={sp.color} />
+                    </div>
+                    <div style={{ fontSize:12, color:'var(--txt-2)', lineHeight:1.65, marginBottom:6 }}>
+                      <strong style={{ color:'var(--txt-1)' }}>How to use:</strong> {item.prep}
+                    </div>
+                    <div style={{ fontSize:12, color:'var(--txt-2)', lineHeight:1.65, marginBottom:6 }}>
+                      <strong style={{ color:'var(--txt-1)' }}>Why:</strong> {item.why}
+                    </div>
+                    <div style={{ fontSize:12, color:'var(--txt-2)', lineHeight:1.65, marginBottom:6 }}>
+                      <strong style={{ color:'var(--txt-1)' }}>Local source idea:</strong> {item.source}
+                    </div>
+                    <div style={{ fontSize:12, color:'var(--c-warn)', lineHeight:1.65 }}>
+                      <strong>Caution:</strong> {item.caution}
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{ background:'var(--bg-surface)', borderRadius:10, padding:'11px 13px', fontSize:12, color:'var(--txt-2)', lineHeight:1.65, marginTop:12 }}>
+                Practical rule: if fish do not finish the green supplement in 15-20 minutes, reduce the next serving. If they finish it consistently, stay within the suggested percentage rather than increasing freely.
+              </div>
+            </div>
+          </Card>
+
+          <SectionHead>Best practice</SectionHead>
+          <Card>
+            <div style={{ padding:'14px 16px' }}>
+              {GIFT_NATURAL_FEED_TIPS.map((tip, i) => (
+                <div key={i} style={{ display:'flex', gap:10, padding:'8px 0', borderBottom: i < GIFT_NATURAL_FEED_TIPS.length - 1 ? '1px solid var(--border)' : 'none', alignItems:'flex-start' }}>
+                  <div style={{ width:18, height:18, borderRadius:5, background:sp.light, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginTop:1 }}>
+                    <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke={sp.color} strokeWidth="2" strokeLinecap="round"><path d="M1.5 4.5l2 2.5L8 1.5" /></svg>
+                  </div>
+                  <span style={{ fontSize:12.5, lineHeight:1.6 }}>{tip}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          <SectionHead>Avoid these leaves</SectionHead>
+          <Card>
+            {GIFT_NATURAL_FEED_AVOID.map((item, i) => (
+              <div key={item.n} style={{ padding:'12px 16px', borderBottom: i < GIFT_NATURAL_FEED_AVOID.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                <div style={{ fontSize:13, fontWeight:600, color:'var(--c-danger)', marginBottom:3 }}>{item.n}</div>
+                <div style={{ fontSize:12, color:'var(--txt-2)', lineHeight:1.6 }}>{item.why}</div>
+              </div>
+            ))}
+          </Card>
+        </>
+      )}
 
       <SectionHead>Local feed shops</SectionHead>
       {SHOPS.map((sh,i) => (
@@ -565,6 +638,25 @@ function LearnTips({ sp }) {
           </div>
         ))}
       </Card>
+
+      {sp.name === 'GIFT Tilapia' && (
+        <>
+          <SectionHead>Natural feed do's and don'ts</SectionHead>
+          <Card>
+            {[...GIFT_NATURAL_FEED_DOS_DONTS.dos.map(t => ({ ok:true, t })), ...GIFT_NATURAL_FEED_DOS_DONTS.donts.map(t => ({ ok:false, t }))].map(({ ok, t }, i, arr) => (
+              <div key={i} style={{ display:'flex', gap:10, padding:'10px 16px', borderBottom: i<arr.length-1 ? '1px solid var(--border)' : 'none', alignItems:'flex-start', fontSize:13 }}>
+                <div style={{ width:18, height:18, borderRadius:5, background: ok ? '#DCFCE7' : '#FEE2E2', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginTop:1 }}>
+                  {ok
+                    ? <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="#16A34A" strokeWidth="2.2" strokeLinecap="round"><path d="M1.5 4.5l2 2.5L8 1.5" /></svg>
+                    : <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="#DC2626" strokeWidth="2.2" strokeLinecap="round"><path d="M1.5 1.5l6 6M7.5 1.5l-6 6" /></svg>
+                  }
+                </div>
+                <span style={{ lineHeight:1.5 }}>{t}</span>
+              </div>
+            ))}
+          </Card>
+        </>
+      )}
     </>
   );
 }

@@ -185,3 +185,81 @@ export const GOVT = [
   {n:'KUFOS Panangad', r:'Research and farmer training — 12km from EKM', c:'kufos.ac.in · Panangad, Kochi'},
   {n:'NIFAM Aluva', r:'Fisheries training, Ernakulam district', c:'+91 484 2604179 · nifamaluva@gmail.com'},
 ];
+
+export const GIFT_NATURAL_FEEDS = [
+  {
+    k: 'azolla',
+    n: 'Azolla',
+    kind: 'Floating fern',
+    bestFor: 'Best natural add-on for juvenile and grower GIFT',
+    replacePct: { juvenile: 10, grower: 20 },
+    weekly: { juvenile: '2-3 times/week', grower: '3-5 times/week' },
+    minWeight: 10,
+    source: 'KAU Azolla culture, local azolla growers, Ernakulam agri shops',
+    prep: 'Rinse well, shade-drain for 10-15 min, feed fresh. Remove leftovers after 20-30 min.',
+    why: 'Good protein-rich green supplement. Trials in tilapia support moderate use, but pushing it too high can reduce growth.',
+    caution: 'Do not let azolla fully cover the tank surface. Keep it clean and pesticide-free.',
+  },
+  {
+    k: 'duckweed',
+    n: 'Duckweed',
+    kind: 'Floating aquatic plant',
+    bestFor: 'Useful once fish are actively surface-feeding',
+    replacePct: { juvenile: 10, grower: 15 },
+    weekly: { juvenile: '2-3 times/week', grower: '3-4 times/week' },
+    minWeight: 25,
+    source: 'Best from your own clean culture tub or trusted pond-plant source',
+    prep: 'Rinse, feed only from clean water culture, and offer in a ring/tray so it stays visible.',
+    why: 'Tilapia digest duckweed well at moderate levels. Fresh duckweed is safer as a supplement than as a full feed replacement.',
+    caution: 'Never harvest from drainage canals, stagnant roadside water, or pesticide-exposed ponds.',
+  },
+  {
+    k: 'moringa',
+    n: 'Moringa leaves',
+    kind: 'Drumstick leaf',
+    bestFor: 'Occasional green leaf supplement, not a main feed',
+    replacePct: { juvenile: 5, grower: 10 },
+    weekly: { juvenile: '1-2 times/week', grower: '2-3 times/week' },
+    minWeight: 25,
+    source: 'Fresh household moringa leaves, vegetable markets, nursery-grown moringa',
+    prep: 'Use tender leaves only. Wash, wilt in shade, chop finely, and mix with a little wet pellet feed.',
+    why: 'Research supports low inclusion. Higher moringa levels can depress growth because of fiber and anti-nutritional factors.',
+    caution: 'Do not dump whole branches or fibrous mature leaves into the tank.',
+  },
+];
+
+export const GIFT_NATURAL_FEED_TIPS = [
+  'Use pellet feed as the base diet. Natural greens are supplements, not the main ration.',
+  'Start with the lower end for 3-4 days and watch feeding response before increasing.',
+  'Give greens in the first half of the day so leftovers can be removed before evening.',
+  'Skip natural greens on days with poor appetite, low oxygen, heavy rain, or ammonia stress.',
+  'Rinse every leaf or floating plant well before feeding.',
+  'If water clouds or fish leave feed untouched after 15-20 minutes, cut the amount next time.',
+];
+
+export const GIFT_NATURAL_FEED_AVOID = [
+  { n:'Oleander / Arali', why:'Highly toxic cardiac glycosides. Never feed leaves, flowers, or trimmings.' },
+  { n:'Yellow oleander / Manja arali', why:'Toxic cardenolides. Unsafe even in small amounts.' },
+  { n:'Castor / Amanakku', why:'Contains ricin. Avoid leaves, seed cake, and seeds completely.' },
+  { n:'Lantana', why:'Toxic lantadenes in leaves. Not a fodder plant.' },
+  { n:'Unknown ornamental leaves', why:'If a leaf is grown mainly as an ornamental, assume unsafe unless proven edible.' },
+  { n:'Roadside or pesticide-sprayed greens', why:'Chemical residue is a bigger risk than the plant itself.' },
+  { n:'Rotting or yellowed greens', why:'Fast water fouling and bacterial load.' },
+];
+
+export const GIFT_NATURAL_FEED_DOS_DONTS = {
+  dos: [
+    'Feed chopped tender greens only after fish are already trained to take pellets.',
+    'Limit natural greens more tightly in fry and small juveniles.',
+    'Use a floating ring, tray, or one feeding corner so you can monitor intake.',
+    'Reduce pellet grams only when the fish actually finish the natural supplement.',
+    'Keep a separate small azolla or duckweed tub if you want steady supply.',
+  ],
+  donts: [
+    'Do not replace the full pellet ration with leaves or pond plants.',
+    'Do not feed large handfuls late in the evening.',
+    'Do not use tough stems, mature fibrous leaves, or market waste with spoilage.',
+    'Do not feed plants collected from sewage channels or polluted ponds.',
+    'Do not continue a supplement if fish spit it out repeatedly or water quality drops.',
+  ],
+};

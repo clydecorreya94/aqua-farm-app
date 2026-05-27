@@ -390,8 +390,11 @@ export function AppProvider({ children }) {
     ? projectedWeightFrom(projectionAnchorWeight, projectionAnchorDate, state.fish, 1)
     : state.avgW;
 
-  // Use the latest logged size when available, otherwise fall back to projection.
-  const effectiveW = latestLoggedWeight ?? projectedW;
+  // Once we have an anchor, today's feed should follow the same day-by-day
+  // projection as tomorrow's feed instead of freezing at the last logged weight.
+  const effectiveW = projectionAnchorDate && projectionAnchorWeight
+    ? projectedW
+    : (latestLoggedWeight ?? state.avgW);
   const tomorrowStage = getStage(tomorrowProjectedW);
   const tomorrowBiomass = state.cnt * tomorrowProjectedW;
   const tomorrowDailyFeed = +(tomorrowBiomass * tomorrowStage.r / 100).toFixed(1);
@@ -430,8 +433,27 @@ export function AppProvider({ children }) {
   const getWaterStatus = useCallback((key, val) => {
     const n = parseFloat(val);
     if (isNaN(n) || val === '') return null;
-    const good = { pH:[7,8], temp:[28,30], do_:[5,8], nh3: state.fish==='gift'?[0,0.3]:[0,0.05], no2:[0,0.05], sal:[10,20] };
-    const warn = { pH:[6.5,8.5], temp:[24,33], do_:[4,8], nh3: state.fish==='gift'?[0,0.5]:[0,0.1], no2:[0,0.2], sal:[5,25] };
+    const ranges = {
+      gift: {
+        good: { pH:[7,8], temp:[28,30], do_:[5,8], nh3:[0,0.3], no2:[0,0.05], sal:[0,2] },
+        warn: { pH:[6.5,8.5], temp:[24,33], do_:[4,8], nh3:[0,0.5], no2:[0,0.2], sal:[0,3] },
+      },
+      karimeen: {
+        good: { pH:[7,8], temp:[28,30], do_:[5,8], nh3:[0,0.05], no2:[0,0.05], sal:[10,20] },
+        warn: { pH:[6.5,8.5], temp:[24,33], do_:[4,8], nh3:[0,0.1], no2:[0,0.2], sal:[5,25] },
+      },
+      seabass: {
+        good: { pH:[7.5,8.5], temp:[28,32], do_:[6,10], nh3:[0,0.1], no2:[0,0.5], sal:[5,20] },
+        warn: { pH:[6.5,9], temp:[24,35], do_:[4,10], nh3:[0,0.5], no2:[0,1], sal:[1,35] },
+      },
+      tigerShrimp: {
+        good: { pH:[7.5,8.5], temp:[28,31], do_:[5,10], nh3:[0,0.1], no2:[0,0.5], sal:[15,25] },
+        warn: { pH:[7,9], temp:[24,34], do_:[4,10], nh3:[0,0.5], no2:[0,1], sal:[10,30] },
+      },
+    };
+    const selected = ranges[state.fish] || ranges.gift;
+    const good = selected.good;
+    const warn = selected.warn;
     const [gl, gh] = good[key] || [0, 100];
     if (n >= gl && n <= gh) return { l:'Good', color:'#16A34A', bg:'#DCFCE7' };
     const [wl, wh] = warn[key] || [0, 100];

@@ -212,7 +212,7 @@ export default function Settings() {
           {[
             ['App', "Clyde's AquaFarm Kerala"],
             ['Version', 'v5.0'],
-            ['Fish', state.fish === 'gift' ? 'GIFT Tilapia' : 'Karimeen (Pearl Spot)'],
+            ['Species', sp.name],
             ['Tank', '1000L concrete ring tank · Ernakulam'],
             ['Storage', 'Saved to device (localStorage)'],
           ].map(([l, v], i, arr) => (

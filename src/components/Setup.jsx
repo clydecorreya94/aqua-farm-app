@@ -46,17 +46,23 @@ export default function Setup() {
             <>
               <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 5 }}>Which fish will you farm?</div>
               <div style={{ fontSize: 13, color: 'var(--txt-2)', marginBottom: 18, lineHeight: 1.65 }}>
-                Your choice personalises all feeding, water and care guidance for your 1000L tank in Ernakulam.
+                Your choice personalises feeding, water, growth and care guidance for your Ernakulam setup.
               </div>
               {Object.entries(SPECIES).map(([k, v]) => (
                 <button key={k} onClick={() => dispatch({ type: 'SETUP_FISH', fish: k })}
                   style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: 15, borderRadius: 14, border: `2px solid ${fish === k ? v.color : 'var(--border-md)'}`, background: fish === k ? v.light : 'var(--bg-surface)', marginBottom: 10, textAlign: 'left', cursor: 'pointer', transition: 'all 0.15s' }}>
                   <div style={{ width: 48, height: 48, borderRadius: 13, background: fish === k ? v.color : v.light, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 24 }}>
-                    {k === 'gift' ? '🐟' : '🐠'}
+                    {v.icon || '🐟'}
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14, fontWeight: 500, color: fish === k ? v.color : 'var(--txt-1)', marginBottom: 2 }}>{v.name}</div>
-                    <div style={{ fontSize: 12, color: 'var(--txt-2)' }}>{v.harvest} to harvest · {v.hw}</div>
+                    <div style={{ fontSize: 12, color: 'var(--txt-2)', marginBottom: 6 }}>{v.harvest} to harvest · {v.hw}</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 6 }}>
+                      {[v.beginnerFit, v.method].filter(Boolean).map(label => (
+                        <span key={label} style={{ fontSize: 10.5, color: fish === k ? v.dark : 'var(--txt-2)', background: fish === k ? 'rgba(255,255,255,0.55)' : 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 99, padding: '2px 7px' }}>{label}</span>
+                      ))}
+                    </div>
+                    {v.setupSummary && <div style={{ fontSize: 11.5, color: 'var(--txt-2)', lineHeight: 1.45 }}>{v.setupSummary}</div>}
                   </div>
                   <div style={{ width: 20, height: 20, borderRadius: '50%', border: `2px solid ${fish === k ? v.color : 'var(--border-md)'}`, background: fish === k ? v.color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
                     {fish === k && <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff' }} />}
@@ -70,7 +76,7 @@ export default function Setup() {
             <>
               <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 5 }}>How many fish are you starting with?</div>
               <div style={{ fontSize: 13, color: 'var(--txt-2)', marginBottom: 13, lineHeight: 1.65 }}>
-                25–50 fish is ideal for a 1000L beginner setup.
+                25–50 stock is ideal for a 1000L beginner setup. For shrimp, treat this as a learning trial, not a commercial crop.
               </div>
               <input type="number" value={cnt} min={1} max={500} step={1}
                 onChange={e => dispatch({ type: 'SET', key: 'cnt', value: +e.target.value || 1 })}
@@ -82,7 +88,7 @@ export default function Setup() {
 
               <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 5 }}>What size are your fish right now?</div>
               <div style={{ fontSize: 13, color: 'var(--txt-2)', marginBottom: 13, lineHeight: 1.65 }}>
-                New fingerlings are usually 3–5cm. This sets your starting feed amounts and growth projections.
+                Enter the average starting size. This sets your feed amounts and growth projections.
               </div>
 
               <div style={{ display: 'flex', borderRadius: 10, overflow: 'hidden', border: `1.5px solid ${sp.color}`, marginBottom: 14 }}>
@@ -129,7 +135,7 @@ export default function Setup() {
                     </div>
                   )}
                   <div style={{ background: 'var(--c-warn-l)', borderLeft: '3px solid var(--c-warn)', borderRadius: '0 8px 8px 0', padding: '9px 12px', fontSize: 12, color: 'var(--c-warn)', lineHeight: 1.6 }}>
-                    Fish under ~5cm (≈3g) are hard to weigh — switch to <strong>Length (cm)</strong> mode.
+                    Very small seed are hard to weigh accurately — use the best average estimate you have.
                   </div>
                 </>
               )}
@@ -152,7 +158,7 @@ export default function Setup() {
               else dispatch({ type: 'SETUP_FINISH' });
             }}
             style={{ flex: 2, padding: 13, borderRadius: 13, background: setupStep === 1 && !step1Valid ? 'var(--border-md)' : `linear-gradient(135deg, ${sp.color}, ${sp.dark})`, color: '#fff', fontSize: 14, fontWeight: 500, boxShadow: setupStep === 1 && !step1Valid ? 'none' : `0 4px 16px ${sp.color}40`, transition: 'all 0.2s' }}>
-            {setupStep === 0 ? 'Continue →' : 'Start farming 🐟'}
+            {setupStep === 0 ? 'Continue →' : `Start farming ${sp.icon || '🐟'}`}
           </button>
         </div>
       </div>

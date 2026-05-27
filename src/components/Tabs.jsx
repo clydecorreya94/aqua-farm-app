@@ -320,15 +320,16 @@ export function Plan() {
 // ═══════════════════════════════════════════════════════════════════════════
 export function Water() {
   const { state, dispatch, sp, getWaterStatus, waterLog } = useApp();
-  const { waterHistory, waterSaved, fish, tempOpen } = state;
+  const { waterHistory, waterSaved, tempOpen } = state;
 
+  const target = sp.waterTargets || {};
   const params = [
-    ['pH',   'pH',            '7.0–8.0',  'PH'],
-    ['temp', 'Temperature',   '28–30°C',  'Temp'],
-    ['do_',  'Dissolved O₂',  '> 5 mg/L', 'DO'],
-    ['nh3',  'Ammonia (TAN)', fish==='gift' ? '< 0.5 mg/L' : '< 0.1 mg/L', 'NH3'],
-    ['no2',  'Nitrite NO₂',   '< 0.1 mg/L', 'NO2'],
-    ...(fish==='karimeen' ? [['sal','Salinity','10–20 ppt','Sal']] : []),
+    ['pH',   'pH',            target.pH?.[0] || '7.0–8.0',  'PH'],
+    ['temp', 'Temperature',   target.temp?.[0] || '28–30°C', 'Temp'],
+    ['do_',  'Dissolved O₂',  target.do_?.[0] || '> 5 mg/L', 'DO'],
+    ['nh3',  'Ammonia (TAN)', target.nh3?.[0] || '< 0.1 mg/L', 'NH3'],
+    ['no2',  'Nitrite NO₂',   target.no2?.[0] || '< 0.1 mg/L', 'NO2'],
+    ...(sp.needsSalinity ? [['sal','Salinity', target.sal?.[0] || '10–20 ppt','Sal']] : []),
   ];
 
   const handleSave = () => {
@@ -419,7 +420,7 @@ export function Water() {
                   <div style={{ fontSize:12, fontWeight:500 }}>{h.date} · {h.time}</div>
                   <div style={{ fontSize:11, color:'var(--txt-3)', marginTop:3 }}>
                     pH:{h.pH||'—'} · {h.temp||'—'}°C · DO:{h.do_||'—'} · NH₃:{h.nh3||'—'}
-                    {fish==='karimeen' && h.sal ? ` · Sal:${h.sal}ppt` : ''}
+                    {sp.needsSalinity && h.sal ? ` · Sal:${h.sal}ppt` : ''}
                   </div>
                 </div>
                 <DeleteBtn onClick={() => dispatch({ type:'SET', key:'confirmDel', value:{ type:'water', idx:i, label:`Water log: ${h.date} ${h.time}` } })} />
@@ -448,7 +449,7 @@ export function Water() {
 // ═══════════════════════════════════════════════════════════════════════════
 export function Learn() {
   const { state, dispatch, sp } = useApp();
-  const { learnSub, fish } = state;
+  const { learnSub } = state;
 
   const subs = [
     { k:'ref', label:'Quick ref' },
@@ -470,7 +471,7 @@ export function Learn() {
         ))}
       </div>
 
-      {learnSub === 'ref' && <LearnRef sp={sp} fish={fish} />}
+      {learnSub === 'ref' && <LearnRef sp={sp} />}
       {learnSub === 'disease' && <LearnDisease state={state} dispatch={dispatch} />}
       {learnSub === 'scale' && <LearnScale sp={sp} state={state} dispatch={dispatch} />}
       {learnSub === 'tips' && <LearnTips sp={sp} />}
@@ -478,10 +479,16 @@ export function Learn() {
   );
 }
 
-function LearnRef({ sp, fish }) {
-  const rows = fish === 'karimeen'
-    ? [['pH','7.0–8.0','< 6.5 or > 9 = danger'],['Temperature','28–30°C','< 24°C or > 33°C = stress'],['Dissolved O₂','> 5 mg/L','< 3 mg/L = lethal'],['Ammonia TAN','< 0.1 mg/L','Karimeen very sensitive'],['Nitrite NO₂','< 0.1 mg/L','> 0.5 mg/L = toxic'],['Salinity','10–20 ppt','< 5 ppt = stress']]
-    : [['pH','7.0–8.0','< 6.5 or > 9 = danger'],['Temperature','28–30°C','< 24°C or > 33°C = stress'],['Dissolved O₂','> 5 mg/L','< 3 mg/L = lethal'],['Ammonia TAN','< 0.5 mg/L','Higher pH = more toxic ammonia'],['Nitrite NO₂','< 0.1 mg/L','> 0.5 mg/L = toxic'],['Alkalinity','80–150 ppm','< 50 ppm = pH crash risk']];
+function LearnRef({ sp }) {
+  const target = sp.waterTargets || {};
+  const rows = [
+    ['pH', target.pH?.[1] || '7.0–8.0', target.pH?.[2] || '< 6.5 or > 9 = danger'],
+    ['Temperature', target.temp?.[1] || '28–30°C', target.temp?.[2] || '< 24°C or > 33°C = stress'],
+    ['Dissolved O₂', target.do_?.[1] || '> 5 mg/L', target.do_?.[2] || '< 3 mg/L = lethal'],
+    ['Ammonia TAN', target.nh3?.[1] || '< 0.1 mg/L', target.nh3?.[2] || 'Higher pH = more toxic ammonia'],
+    ['Nitrite NO₂', target.no2?.[1] || '< 0.1 mg/L', target.no2?.[2] || '> 0.5 mg/L = toxic'],
+    ...(sp.needsSalinity ? [['Salinity', target.sal?.[1] || '10–20 ppt', target.sal?.[2] || 'Keep stable']] : [['Alkalinity', target.alkalinity?.[1] || '80–150 ppm', target.alkalinity?.[2] || '< 50 ppm = pH crash risk']]),
+  ];
 
   return (
     <>
@@ -500,7 +507,7 @@ function LearnRef({ sp, fish }) {
       <SectionHead>Essential equipment checklist</SectionHead>
       <Card>
         <div style={{ padding:'14px 16px' }}>
-          {['1000L concrete ring tank', 'Air pump ≥5W (must run 24/7)', 'Air stones × 2 across tank floor', 'Filter sump 200L with bio-media', 'Ceramic rings or bio-balls', 'pH test kit (weekly)', 'Ammonia test kit', 'Digital thermometer', fish==='karimeen' ? 'Salinity refractometer' : 'Non-iodised salt (1g/L always)', 'Dechlorinator', 'Battery inverter backup for air pump', 'Floating feeding tray'].map((e,i,arr) => (
+          {['1000L concrete ring tank', 'Air pump ≥5W (must run 24/7)', 'Air stones × 2 across tank floor', 'Filter sump 200L with bio-media', 'Ceramic rings or bio-balls', 'pH test kit (weekly)', 'Ammonia test kit', 'Digital thermometer', sp.needsSalinity ? 'Salinity refractometer' : 'Non-iodised salt (1g/L always)', 'Dechlorinator', 'Battery inverter backup for air pump', 'Floating feeding tray'].map((e,i,arr) => (
             <div key={e} style={{ display:'flex', gap:10, padding:'7px 0', borderBottom: i<arr.length-1 ? '1px solid var(--border)' : 'none', fontSize:13, alignItems:'center' }}>
               <div style={{ width:18, height:18, borderRadius:5, background:sp.light, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                 <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke={sp.color} strokeWidth="2" strokeLinecap="round"><path d="M1.5 4.5l2 2.5L8 1.5" /></svg>
@@ -590,7 +597,7 @@ function LearnScale({ sp, state, dispatch }) {
           </div>
           <div style={{ fontSize:36, fontWeight:600, color:sp.color, textAlign:'center', margin:'10px 0', letterSpacing:'-0.02em' }}>{scaleTarget} fish</div>
           <div style={{ display:'grid', gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr)', gap:8 }}>
-            {[['Tanks needed', tanks+'×1000L'], ['Total water', (tanks*1000)+'L'], ['Filter volume', (tanks*200)+'L'], sp.fish==='karimeen'?['Marine salt', tanks*12+'kg']:['Salt/month', tanks+'kg']].map(([l,v]) => (
+            {[['Tanks needed', tanks+'×1000L'], ['Total water', (tanks*1000)+'L'], ['Filter volume', (tanks*200)+'L'], sp.needsSalinity ? ['Marine salt', tanks*12+'kg'] : ['Salt/month', tanks+'kg']].map(([l,v]) => (
               <StatCard key={l} label={l} value={v} accent={sp.color} />
             ))}
           </div>
@@ -598,7 +605,7 @@ function LearnScale({ sp, state, dispatch }) {
       </Card>
       <Card>
         <div style={{ padding:'14px 16px' }}>
-          {[['FRP tanks ×'+tanks,'₹'+(tanks*7000).toLocaleString('en-IN')],['Air pumps','₹'+(tanks*1800).toLocaleString('en-IN')],['Filter pumps','₹'+(tanks*2500).toLocaleString('en-IN')],['Bio-media','₹'+(tanks*2000).toLocaleString('en-IN')],['Fingerlings ('+scaleTarget+')','₹'+(scaleTarget*(sp.name.includes('Karimeen')?4:2)).toLocaleString('en-IN')],['Feed/month','₹'+Math.round(scaleTarget*5*0.03*30*65/1000).toLocaleString('en-IN')],['Electricity/month','₹'+(tanks*1200).toLocaleString('en-IN')]].map(([l,v],i,arr) => (
+          {[['FRP tanks ×'+tanks,'₹'+(tanks*7000).toLocaleString('en-IN')],['Air pumps','₹'+(tanks*1800).toLocaleString('en-IN')],['Filter pumps','₹'+(tanks*2500).toLocaleString('en-IN')],['Bio-media','₹'+(tanks*2000).toLocaleString('en-IN')],['Fingerlings ('+scaleTarget+')','₹'+(scaleTarget*(sp.name.includes('Karimeen') ? 4 : sp.name.includes('Seabass') ? 30 : sp.name.includes('Shrimp') ? 2 : 2)).toLocaleString('en-IN')],['Feed/month','₹'+Math.round(scaleTarget*5*0.03*30*65/1000).toLocaleString('en-IN')],['Electricity/month','₹'+(tanks*1200).toLocaleString('en-IN')]].map(([l,v],i,arr) => (
             <InfoRow key={l} label={l} value={v} border={i<arr.length-1} />
           ))}
         </div>

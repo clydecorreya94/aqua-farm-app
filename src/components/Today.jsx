@@ -123,7 +123,7 @@ export default function Today() {
       )}
 
       {/* Seasonal alerts */}
-      {monsoon && <AlertBanner color="var(--c-amber)" bg="var(--c-amber-l)" borderColor="#EF9F27" icon="🌧️" text="Monsoon: check salinity after rain, pH may drop — keep baking soda ready." />}
+      {monsoon && <AlertBanner color="var(--c-amber)" bg="var(--c-amber-l)" borderColor="#EF9F27" icon="🌧️" text={sp.needsSalinity ? "Monsoon: check salinity after rain, pH may drop — keep baking soda ready." : "Monsoon: pH may drop after heavy rain — keep baking soda ready."} />}
       {summer  && <AlertBanner color="var(--c-danger)" bg="var(--c-danger-l)" borderColor="#F09595" icon="☀️" text="Summer alert: increase aeration, shade the tank, shift feedings to early morning and late evening." />}
 
       {/* Feeding */}
@@ -220,7 +220,7 @@ export default function Today() {
           ['w1','Test pH, ammonia and nitrite','water'],
           ['w2','Water change 20–25% (200–250L)','water'],
           ['w3','Clean mechanical filter / sponge','filter'],
-          fish === 'karimeen' ? ['w4','Check and top-up salt (10–15 ppt)','water'] : null,
+          sp.needsSalinity ? ['w4', `Check salinity (${sp.waterTargets?.sal?.[0] || '10–20 ppt'})`, 'water'] : null,
           ['w5','Weigh 3–5 sample fish to track growth','growth'],
           ['w6','Inspect fish for disease signs','health'],
         ].filter(Boolean).map(([id, label, cat]) => (

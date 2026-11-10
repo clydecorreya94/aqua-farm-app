@@ -1,20 +1,24 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
+import { createContext, useContext, useReducer, useEffect, useCallback, useMemo } from 'react';
 import { SPECIES, MEAL_TIMES, cmToG } from './data';
+import { isoLocal, weekKey, daysBetween, addDays } from './lib/dates';
 
 const AppContext = createContext(null);
 
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+const SCHEMA_VERSION = 6;
+const STORAGE_KEY = 'aquafarm_v5'; // unchanged so existing devices keep their data
+const MAX_WATER_LOGS = 100;
+const MAX_GROWTH_LOGS = 100;
+
+function clampInt(value, min, max, fallback) {
+  const n = parseInt(value, 10);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
 }
 
-function weekKeyFor(date = new Date()) {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const day = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - day);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-  return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+function getLatestGrowthEntry(log) {
+  if (!Array.isArray(log) || log.length === 0) return null;
+  return [...log].sort((a, b) => String(b?.iso || '').localeCompare(String(a?.iso || '')))[0];
 }
 
 function entryWeight(entry) {
@@ -23,8 +27,8 @@ function entryWeight(entry) {
 }
 
 function normalizeRecurringChecks(state) {
-  const today = todayIso();
-  const weekKey = weekKeyFor();
+  const today = isoLocal();
+  const currentWeek = weekKey();
   const nextState = { ...state };
 
   if (nextState.dailyCheckedDate !== today) {
@@ -32,9 +36,9 @@ function normalizeRecurringChecks(state) {
     nextState.dailyCheckedDate = today;
   }
 
-  if (nextState.weeklyCheckedKey !== weekKey) {
+  if (nextState.weeklyCheckedKey !== currentWeek) {
     nextState.weeklyChecked = {};
-    nextState.weeklyCheckedKey = weekKey;
+    nextState.weeklyCheckedKey = currentWeek;
   }
 
   return nextState;
@@ -42,14 +46,16 @@ function normalizeRecurringChecks(state) {
 
 // ── Growth projection engine ───────────────────────────────────────────────
 // Given a starting weight on a start date, project future weights day by day
+const MILESTONE_WEIGHTS = [5, 10, 25, 50, 100, 150, 200, 250, 300, 400, 500, 600];
+
 export function projectGrowth(startW, startDateStr, species) {
-  const sp = SPECIES[species];
+  const sp = SPECIES[species] || SPECIES.gift;
   const milestones = [];
   let w = startW;
-  const startDate = new Date(startDateStr);
 
   // Project up to harvest
   const harvestTarget = sp.growth[sp.growth.length - 1].g;
+  const elapsedDays = daysBetween(startDateStr, isoLocal());
   let day = 0;
   const maxDays = 400;
 
@@ -59,16 +65,15 @@ export function projectGrowth(startW, startDateStr, species) {
     w = +(w + ratePerDay).toFixed(2);
     day++;
 
-    // Record milestones
-    const milestoneWeights = [5, 10, 25, 50, 100, 150, 200, 250, 300, 400, 500, 600];
-    for (const mw of milestoneWeights) {
+    // Record milestones. Harvest is appended separately, so skip any milestone
+    // at or past the harvest target to avoid duplicate cards.
+    for (const mw of MILESTONE_WEIGHTS) {
+      if (mw >= harvestTarget) continue;
       if (w >= mw && !milestones.find(m => m.targetG === mw)) {
-        const d = new Date(startDate);
-        d.setDate(d.getDate() + day);
         milestones.push({
           targetG: mw,
-          date: d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
-          daysFromNow: Math.max(0, day - Math.floor((Date.now() - startDate) / 86400000)),
+          date: addDays(startDateStr, day).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+          daysFromNow: Math.max(0, day - elapsedDays),
           stage: stage.l,
         });
       }
@@ -77,12 +82,10 @@ export function projectGrowth(startW, startDateStr, species) {
 
   // Add harvest milestone
   if (w >= harvestTarget) {
-    const d = new Date(startDate);
-    d.setDate(d.getDate() + day);
     milestones.push({
       targetG: harvestTarget,
-      date: d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
-      daysFromNow: Math.max(0, day - Math.floor((Date.now() - startDate) / 86400000)),
+      date: addDays(startDateStr, day).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+      daysFromNow: Math.max(0, day - elapsedDays),
       stage: 'Harvest',
       isHarvest: true,
     });
@@ -97,9 +100,8 @@ export function currentProjectedWeight(startW, startDateStr, species) {
 }
 
 export function projectedWeightFrom(startW, startDateStr, species, extraDays = 0) {
-  const sp = SPECIES[species];
-  const startDate = new Date(startDateStr);
-  const daysPassed = Math.max(0, Math.floor((Date.now() - startDate) / 86400000) + extraDays);
+  const sp = SPECIES[species] || SPECIES.gift;
+  const daysPassed = Math.max(0, daysBetween(startDateStr, isoLocal()) + extraDays);
   let w = startW;
   for (let d = 0; d < daysPassed; d++) {
     const stage = sp.stages.find(s => w >= s.mn && w < s.mx) || sp.stages[sp.stages.length - 1];
@@ -111,17 +113,19 @@ export function projectedWeightFrom(startW, startDateStr, species, extraDays = 0
 
 // ── Initial state ──────────────────────────────────────────────────────────
 const initialState = {
+  schemaVersion: SCHEMA_VERSION,
   screen: 'setup',
   setupStep: 0,
   fish: 'gift',
   cnt: 25,
+  tankLitres: 1000,
   setupSizeMode: 'cm',
   setupCm: '3',
   setupGrams: '',
 
-  // The "anchor" — set once from first log or setup, never changes unless user resets
-  anchorDate: null,       // ISO date string of first size entry
-  anchorWeight: null,     // grams at anchor date
+  // Immutable setup baseline. Growth logs project from the latest entry instead.
+  anchorDate: null,       // ISO date string of the starting size
+  anchorWeight: null,     // grams at that date
   avgW: 0.7,
 
   tab: 'today',
@@ -143,7 +147,6 @@ const initialState = {
   growthMode: 'weight',
 
   feedWStr: '3',
-  feedCStr: '25',
 
   scaleTarget: 100,
   feedBought: {},
@@ -182,21 +185,23 @@ function reducer(state, action) {
       } else {
         avgW = parseFloat(state.setupGrams) || 1;
       }
-      const today = todayIso();
+      const today = isoLocal();
       return {
         ...state,
         screen: 'main',
         setupStep: 0,
         avgW,
+        cnt: clampInt(state.cnt, 1, 500, 25),
+        tankLitres: clampInt(state.tankLitres, 100, 10000, 1000),
         anchorWeight: avgW,
         anchorDate: today,
         feedWStr: String(avgW),
-        feedCStr: String(state.cnt),
+        schemaVersion: SCHEMA_VERSION,
       };
     }
 
     case 'TOGGLE_DAILY': {
-      const currentDate = todayIso();
+      const currentDate = isoLocal();
       const dailyChecked = state.dailyCheckedDate === currentDate ? state.dailyChecked : {};
       return {
         ...state,
@@ -205,7 +210,7 @@ function reducer(state, action) {
       };
     }
     case 'TOGGLE_WEEKLY': {
-      const currentWeek = weekKeyFor();
+      const currentWeek = weekKey();
       const weeklyChecked = state.weeklyCheckedKey === currentWeek ? state.weeklyChecked : {};
       return {
         ...state,
@@ -218,15 +223,19 @@ function reducer(state, action) {
       return { ...state, ['water' + action.field]: action.value };
 
     case 'SAVE_WATER': {
+      const toNum = v => {
+        const n = parseFloat(v);
+        return Number.isFinite(n) ? n : null;
+      };
       const entry = {
-        pH: state.waterPH, temp: state.waterTemp, do_: state.waterDO,
-        nh3: state.waterNH3, no2: state.waterNO2, sal: state.waterSal,
+        pH: toNum(state.waterPH), temp: toNum(state.waterTemp), do_: toNum(state.waterDO),
+        nh3: toNum(state.waterNH3), no2: toNum(state.waterNO2), sal: toNum(state.waterSal),
         date: new Date().toLocaleDateString('en-IN'),
         time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
       };
       return {
         ...state,
-        waterHistory: [entry, ...state.waterHistory.slice(0, 19)],
+        waterHistory: [entry, ...state.waterHistory].slice(0, MAX_WATER_LOGS),
         waterPH:'', waterTemp:'', waterDO:'', waterNH3:'', waterNO2:'', waterSal:'',
         waterSaved: true,
       };
@@ -236,11 +245,11 @@ function reducer(state, action) {
     case 'ADD_GROWTH_WEIGHT': {
       const w = parseFloat(action.weight);
       if (!w || w <= 0) return state;
-      const today = todayIso();
+      const today = isoLocal();
       const entry = { type: 'weight', w, c: state.cnt, d: new Date().toLocaleDateString('en-IN'), iso: today };
       return {
         ...state,
-        growthLog: [entry, ...state.growthLog.slice(0, 29)],
+        growthLog: [entry, ...state.growthLog].slice(0, MAX_GROWTH_LOGS),
         avgW: w,
         anchorDate: state.anchorDate || today,
         anchorWeight: state.anchorWeight || w,
@@ -253,11 +262,11 @@ function reducer(state, action) {
       const cm = parseFloat(action.cm);
       if (!cm || cm <= 0) return state;
       const estG = cmToG(cm);
-      const today = todayIso();
+      const today = isoLocal();
       const entry = { type: 'length', cm, estG, c: state.cnt, d: new Date().toLocaleDateString('en-IN'), iso: today };
       return {
         ...state,
-        growthLog: [entry, ...state.growthLog.slice(0, 29)],
+        growthLog: [entry, ...state.growthLog].slice(0, MAX_GROWTH_LOGS),
         avgW: estG,
         anchorDate: state.anchorDate || today,
         anchorWeight: state.anchorWeight || estG,
@@ -274,10 +283,11 @@ function reducer(state, action) {
     case 'DELETE_GROWTH': {
       const gl = [...state.growthLog];
       gl.splice(action.idx, 1);
-      const latest = gl[0];
+      // Pick the newest remaining entry by date, never "whatever was at index 0".
+      const latest = getLatestGrowthEntry(gl);
       const latestWeight = entryWeight(latest);
-      const fallbackWeight = state.anchorWeight || state.avgW;
-      const nextAvgW = latestWeight ?? fallbackWeight;
+      // Never fall back to the deleted entry's weight: use the setup baseline.
+      const nextAvgW = latestWeight ?? state.anchorWeight ?? state.avgW;
       return {
         ...state,
         growthLog: gl,
@@ -318,19 +328,56 @@ function reducer(state, action) {
 }
 
 // ── Provider ───────────────────────────────────────────────────────────────
+// Validate and upgrade anything loaded from disk. A stale or hand-edited value
+// used to be able to crash a render (unknown species, missing arrays).
+function migrate(saved, init) {
+  if (!saved || typeof saved !== 'object') return init;
+  const next = { ...init, ...saved };
+
+  if (!SPECIES[next.fish]) next.fish = init.fish;
+  next.cnt = clampInt(next.cnt, 1, 500, init.cnt);
+  next.tankLitres = clampInt(next.tankLitres, 100, 10000, init.tankLitres);
+  next.setupStep = clampInt(next.setupStep, 0, 1, 0);
+  next.theme = ['auto', 'light', 'dark'].includes(next.theme) ? next.theme : 'auto';
+  next.tab = ['today', 'feed', 'plan', 'water', 'growth', 'learn', 'settings'].includes(next.tab) ? next.tab : 'today';
+  next.growthLog = Array.isArray(next.growthLog)
+    ? next.growthLog.filter(g => g && typeof g === 'object').slice(0, MAX_GROWTH_LOGS)
+    : [];
+  next.waterHistory = Array.isArray(next.waterHistory) ? next.waterHistory.slice(0, MAX_WATER_LOGS) : [];
+  next.dailyChecked = next.dailyChecked && typeof next.dailyChecked === 'object' ? next.dailyChecked : {};
+  next.weeklyChecked = next.weeklyChecked && typeof next.weeklyChecked === 'object' ? next.weeklyChecked : {};
+  next.tempOpen = next.tempOpen && typeof next.tempOpen === 'object' ? next.tempOpen : {};
+  next.feedBought = next.feedBought && typeof next.feedBought === 'object' ? next.feedBought : {};
+
+  if (!Number.isFinite(parseFloat(next.avgW))) next.avgW = init.avgW;
+
+  // Recover a baseline if an older build lost it, so projections always have an origin.
+  if (!next.anchorDate) {
+    const earliest = [...next.growthLog]
+      .sort((a, b) => String(a?.iso || '').localeCompare(String(b?.iso || '')))[0];
+    next.anchorDate = earliest?.iso || null;
+    next.anchorWeight = next.anchorWeight ?? entryWeight(earliest) ?? null;
+  }
+
+  next.schemaVersion = SCHEMA_VERSION;
+  delete next.feedCStr; // split count field from older builds
+  return next;
+}
+
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState, (init) => {
-    // Persist to localStorage
     try {
-      const saved = localStorage.getItem('aquafarm_v5');
-      return saved ? normalizeRecurringChecks({ ...init, ...JSON.parse(saved) }) : normalizeRecurringChecks(init);
-    } catch { return normalizeRecurringChecks(init); }
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return normalizeRecurringChecks(migrate(raw ? JSON.parse(raw) : null, init));
+    } catch {
+      return normalizeRecurringChecks(init);
+    }
   });
 
   // Save to localStorage on every state change
   useEffect(() => {
     try {
-      localStorage.setItem('aquafarm_v5', JSON.stringify(state));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch {
       // Ignore storage write failures in restricted/private browsing contexts.
     }
@@ -368,7 +415,7 @@ export function AppProvider({ children }) {
     return () => clearInterval(intervalId);
   }, [state.dailyCheckedDate, state.weeklyCheckedKey, state.dailyChecked, state.weeklyChecked]);
 
-  const sp = SPECIES[state.fish];
+  const sp = SPECIES[state.fish] || SPECIES.gift;
 
   const getStage = useCallback((w) => {
     const stages = sp.stages;
@@ -376,19 +423,25 @@ export function AppProvider({ children }) {
   }, [sp]);
 
   const feedW = Math.max(0.1, parseFloat(state.feedWStr) || 1);
-  const feedC = Math.max(1, parseInt(state.feedCStr) || 1);
-  const latestGrowthEntry = state.growthLog[0] || null;
+  const latestGrowthEntry = useMemo(() => getLatestGrowthEntry(state.growthLog), [state.growthLog]);
   const latestLoggedWeight = entryWeight(latestGrowthEntry);
   const projectionAnchorDate = latestGrowthEntry?.iso || state.anchorDate;
   const projectionAnchorWeight = latestLoggedWeight ?? state.anchorWeight;
 
-  // Use projected current weight if we have an anchor
-  const projectedW = projectionAnchorDate && projectionAnchorWeight
-    ? currentProjectedWeight(projectionAnchorWeight, projectionAnchorDate, state.fish)
-    : state.avgW;
-  const tomorrowProjectedW = projectionAnchorDate && projectionAnchorWeight
-    ? projectedWeightFrom(projectionAnchorWeight, projectionAnchorDate, state.fish, 1)
-    : state.avgW;
+  // Projections are the heaviest calculation in the app. Only rerun them when the
+  // anchor, species or last logged weight changes — not on every keystroke.
+  const projectedW = useMemo(
+    () => (projectionAnchorDate && projectionAnchorWeight
+      ? currentProjectedWeight(projectionAnchorWeight, projectionAnchorDate, state.fish)
+      : state.avgW),
+    [projectionAnchorDate, projectionAnchorWeight, state.fish, state.avgW],
+  );
+  const tomorrowProjectedW = useMemo(
+    () => (projectionAnchorDate && projectionAnchorWeight
+      ? projectedWeightFrom(projectionAnchorWeight, projectionAnchorDate, state.fish, 1)
+      : state.avgW),
+    [projectionAnchorDate, projectionAnchorWeight, state.fish, state.avgW],
+  );
 
   // Once we have an anchor, today's feed should follow the same day-by-day
   // projection as tomorrow's feed instead of freezing at the last logged weight.
@@ -461,11 +514,16 @@ export function AppProvider({ children }) {
     return { l:'Danger', color:'#DC2626', bg:'#FEE2E2' };
   }, [state.fish]);
 
+  // Days in a stage come from the growth model (g/day); the feed rate only sets
+  // how much is eaten at a given body weight. Mixing the two made the feeding
+  // plan disagree with the growth projections.
   const calcFeedForCycle = useCallback((st, fishCount) => {
+    const ratePerDay = sp.growthRatePerDay[st.l] || 1;
+    const days = Math.max(1, Math.round((st.mx - st.mn) / ratePerDay));
     const avgW = (st.mn + st.mx) / 2;
-    const days = Math.round((st.mx - st.mn) / (avgW * st.r / 100));
-    return +((fishCount * avgW * st.r / 100) * days / 1000).toFixed(2);
-  }, []);
+    const avgDailyKg = (fishCount * avgW * st.r / 100) / 1000;
+    return +(avgDailyKg * days).toFixed(2);
+  }, [sp]);
 
   const getGreeting = () => {
     const h = new Date().getHours();
@@ -473,9 +531,12 @@ export function AppProvider({ children }) {
   };
 
   // Growth projections based on anchor
-  const growthProjections = projectionAnchorDate && projectionAnchorWeight
-    ? projectGrowth(projectionAnchorWeight, projectionAnchorDate, state.fish)
-    : [];
+  const growthProjections = useMemo(
+    () => (projectionAnchorDate && projectionAnchorWeight
+      ? projectGrowth(projectionAnchorWeight, projectionAnchorDate, state.fish)
+      : []),
+    [projectionAnchorDate, projectionAnchorWeight, state.fish],
+  );
 
   // Send Telegram notification
   const sendTelegramNotification = useCallback(async (message) => {
@@ -533,7 +594,7 @@ ${['Check aeration is running', 'Observe fish behaviour', 'Remove uneaten feed a
       state, dispatch, sp, getStage, currentStage,
       biomass, dailyFeed, perMeal, meals, nextMeal,
       waterLog, getWaterStatus, calcFeedForCycle, getGreeting,
-      feedW, feedC, effectiveW, projectedW,
+      feedW, effectiveW, projectedW,
       tomorrowProjectedW, tomorrowStage, tomorrowDailyFeed, tomorrowPerMeal, tomorrowMeals,
       projectionAnchorDate, projectionAnchorWeight,
       growthProjections,

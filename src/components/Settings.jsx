@@ -10,7 +10,7 @@ const THEME_OPTIONS = [
 
 export default function Settings() {
   const { state, dispatch, sp, buildDailySummary, sendTelegramNotification } = useApp();
-  const { theme, telegramBotToken, telegramChatId, telegramEnabled, telegramTestStatus } = state;
+  const { theme, tankLitres, telegramBotToken, telegramChatId, telegramEnabled, telegramTestStatus } = state;
 
   const [localToken, setLocalToken]  = useState(telegramBotToken);
   const [localChat,  setLocalChat]   = useState(telegramChatId);
@@ -86,6 +86,23 @@ export default function Settings() {
         </div>
       </Card>
 
+      <SectionHead>Farm setup</SectionHead>
+      <Card>
+        <div style={{ padding:'16px 18px' }}>
+          <div style={{ fontSize:13, fontWeight:500, marginBottom:4 }}>Tank volume</div>
+          <div style={{ fontSize:12, color:'var(--txt-2)', marginBottom:12, lineHeight:1.6 }}>
+            Used for stocking-density advice and the scale-up planner.
+          </div>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <input type="number" min={100} max={10000} step={100} value={tankLitres}
+              onChange={e => dispatch({ type:'SET', key:'tankLitres', value: Math.max(0, +e.target.value || 0) })}
+              onBlur={e => dispatch({ type:'SET', key:'tankLitres', value: Math.min(10000, Math.max(100, parseInt(e.target.value) || 1000)) })}
+              style={{ textAlign:'center', fontWeight:600, fontSize:16 }} />
+            <span style={{ fontSize:13, color:'var(--txt-2)' }}>litres</span>
+          </div>
+        </div>
+      </Card>
+
       <SectionHead>Telegram notifications</SectionHead>
 
       <Card>
@@ -131,7 +148,7 @@ export default function Settings() {
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 14px', background:'var(--bg-surface)', borderRadius:10, marginBottom:14 }}>
             <div>
               <div style={{ fontSize:13, fontWeight:500 }}>Enable notifications</div>
-              <div style={{ fontSize:11, color:'var(--txt-3)', marginTop:2 }}>Sends daily feed summary each morning</div>
+              <div style={{ fontSize:11, color:'var(--txt-3)', marginTop:2 }}>Unlocks manual daily-summary sending — nothing is sent automatically</div>
             </div>
             <button onClick={() => setLocalEnabled(!localEnabled)}
               style={{ width:44, height:25, borderRadius:99, background: localEnabled ? sp.color : 'var(--border-md)', position:'relative', transition:'background 0.2s', border:'none', cursor:'pointer', flexShrink:0 }}>
@@ -213,7 +230,7 @@ export default function Settings() {
             ['App', "Clyde's AquaFarm Kerala"],
             ['Version', 'v5.0'],
             ['Species', sp.name],
-            ['Tank', '1000L concrete ring tank · Ernakulam'],
+            ['Tank', `${tankLitres}L concrete ring tank · Ernakulam`],
             ['Storage', 'Saved to device (localStorage)'],
           ].map(([l, v], i, arr) => (
             <div key={l} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', fontSize:13, borderBottom: i < arr.length-1 ? '1px solid var(--border)' : 'none' }}>

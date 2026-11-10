@@ -4,7 +4,7 @@ import { cmToG, CM_REF } from '../data';
 
 export default function Setup() {
   const { state, dispatch } = useApp();
-  const { setupStep, fish, cnt, setupSizeMode, setupCm, setupGrams } = state;
+  const { setupStep, fish, cnt, tankLitres, setupSizeMode, setupCm, setupGrams } = state;
   const sp = SPECIES[fish];
 
   const cm = parseFloat(setupCm) || 0;
@@ -12,9 +12,12 @@ export default function Setup() {
   const estW = setupSizeMode === 'cm' ? cmToG(cm) : grams;
   const step1Valid = setupSizeMode === 'cm' ? cm > 0 : grams > 0;
 
-  const density = cnt <= 80
+  const tankLitresSafe = Math.max(50, tankLitres || 1000);
+  const safeMax = Math.round(tankLitresSafe * 0.08);
+  const warnMax = Math.round(tankLitresSafe * 0.15);
+  const density = cnt <= safeMax
     ? { color: 'var(--c-ok)', bg: 'var(--c-ok-l)', label: 'Safe for beginners' }
-    : cnt <= 150
+    : cnt <= warnMax
     ? { color: 'var(--c-warn)', bg: 'var(--c-warn-l)', label: 'Moderate — ensure strong filtration' }
     : { color: 'var(--c-danger)', bg: 'var(--c-danger-l)', label: 'High density — advanced setup required' };
 
@@ -76,15 +79,21 @@ export default function Setup() {
             <>
               <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 5 }}>How many fish are you starting with?</div>
               <div style={{ fontSize: 13, color: 'var(--txt-2)', marginBottom: 13, lineHeight: 1.65 }}>
-                25–50 stock is ideal for a 1000L beginner setup. For shrimp, treat this as a learning trial, not a commercial crop.
+                {Math.round(tankLitresSafe * 0.025)}–{Math.round(tankLitresSafe * 0.05)} stock is ideal for a {tankLitresSafe}L beginner setup. For shrimp, treat this as a learning trial, not a commercial crop.
               </div>
               <input type="number" value={cnt} min={1} max={500} step={1}
                 onChange={e => dispatch({ type: 'SET', key: 'cnt', value: +e.target.value || 1 })}
                 style={{ fontSize: 22, fontWeight: 600, textAlign: 'center', padding: 12, marginBottom: 10 }} />
-              <div style={{ background: density.bg, borderRadius: 9, padding: '9px 13px', display: 'flex', alignItems: 'center', gap: 9, marginBottom: 22 }}>
+              <div style={{ background: density.bg, borderRadius: 9, padding: '9px 13px', display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14 }}>
                 <div style={{ width: 7, height: 7, borderRadius: '50%', background: density.color, flexShrink: 0 }} />
-                <span style={{ fontSize: 12, color: density.color }}>{cnt} fish in 1000L — {density.label}</span>
+                <span style={{ fontSize: 12, color: density.color }}>{cnt} fish in {tankLitresSafe}L — {density.label}</span>
               </div>
+
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--txt-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Tank volume (litres)</div>
+              <input type="number" value={tankLitres} min={100} max={10000} step={100}
+                onChange={e => dispatch({ type: 'SET', key: 'tankLitres', value: Math.max(0, +e.target.value || 0) })}
+                onBlur={e => dispatch({ type: 'SET', key: 'tankLitres', value: Math.min(10000, Math.max(100, parseInt(e.target.value) || 1000)) })}
+                style={{ fontSize: 16, fontWeight: 600, textAlign: 'center', padding: 10, marginBottom: 22 }} />
 
               <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 5 }}>What size are your fish right now?</div>
               <div style={{ fontSize: 13, color: 'var(--txt-2)', marginBottom: 13, lineHeight: 1.65 }}>

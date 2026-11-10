@@ -18,6 +18,14 @@ export function cmToG(cm) {
   return 0;
 }
 
+// '₹37–48/kg' → 42.5. Used for feed-cost estimates from the price ranges.
+export function priceMidpoint(price) {
+  const nums = String(price || '').match(/\d+(?:\.\d+)?/g);
+  if (!nums || nums.length === 0) return null;
+  const values = nums.map(Number);
+  return +(values.reduce((a, b) => a + b, 0) / values.length).toFixed(1);
+}
+
 export const CM_REF = [
   {cm:1,   g:0.05, note:'Newly hatched fry'},
   {cm:1.5, g:0.1,  note:''},
@@ -38,6 +46,7 @@ export const MEAL_TIMES = {
   4: ['7:00 AM','11:00 AM','2:00 PM','6:00 PM'],
   3: ['7:00 AM','12:30 PM','5:30 PM'],
   2: ['7:30 AM','5:30 PM'],
+  1: ['7:00 AM'],
 };
 
 export const SPECIES = {

@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { useApp } from '../AppContext';
 import { SectionHead, Card, InfoRow, Chip, StatCard, DeleteBtn } from './UI';
-import { MEAL_TIMES, SHOPS, GOVT, TEMP_ADVICE, DISEASES, GIFT_NATURAL_FEEDS, GIFT_NATURAL_FEED_TIPS, GIFT_NATURAL_FEED_AVOID, GIFT_NATURAL_FEED_DOS_DONTS } from '../data';
+import { MEAL_TIMES, SHOPS, GOVT, TEMP_ADVICE, DISEASES, GIFT_NATURAL_FEEDS, GIFT_NATURAL_FEED_TIPS, GIFT_NATURAL_FEED_AVOID, GIFT_NATURAL_FEED_DOS_DONTS, priceMidpoint } from '../data';
+import { validateWaterReading } from '../lib/water';
 
 const lbl = (text) => (
   <div style={{ fontSize:11, color:'var(--txt-3)', marginBottom:6, fontWeight:500, textTransform:'uppercase', letterSpacing:'0.04em' }}>{text}</div>
@@ -10,11 +12,11 @@ const lbl = (text) => (
 // FEED TAB
 // ═══════════════════════════════════════════════════════════════════════════
 export function Feed() {
-  const { state, dispatch, sp, getStage, feedW, feedC } = useApp();
-  const { feedWStr, feedCStr, fish } = state;
+  const { state, dispatch, sp, getStage, feedW, effectiveW } = useApp();
+  const { feedWStr, cnt, fish } = state;
 
   const lSt    = getStage(feedW);
-  const lBio   = feedC * feedW;
+  const lBio   = cnt * feedW;
   const lDaily = +(lBio * lSt.r / 100).toFixed(1);
   const lMeal  = +(lDaily / lSt.m).toFixed(1);
   const meals  = MEAL_TIMES[lSt.m] || MEAL_TIMES[3];
@@ -36,11 +38,20 @@ export function Feed() {
             </div>
             <div>
               {lbl('Number of fish')}
-              <input type="number" value={feedCStr} min={1} max={500} step={1}
-                onChange={e => dispatch({ type:'SET', key:'feedCStr', value:e.target.value })}
-                onBlur={e => { const v=parseInt(e.target.value); if(!v||v<=0) dispatch({type:'SET',key:'feedCStr',value:'1'}); }}
+              <input type="number" value={cnt} min={1} max={500} step={1}
+                onChange={e => dispatch({ type:'SET', key:'cnt', value: Math.max(1, parseInt(e.target.value) || 1) })}
                 style={{ textAlign:'center', fontWeight:600, fontSize:18 }} />
             </div>
+          </div>
+
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, marginBottom:12 }}>
+            <div style={{ fontSize:11, color:'var(--txt-3)', lineHeight:1.5 }}>
+              What-if calculator — this weight is not saved as a growth log.
+            </div>
+            <button onClick={() => dispatch({ type:'SET', key:'feedWStr', value:String(effectiveW.toFixed(1)) })}
+              style={{ padding:'6px 10px', borderRadius:8, border:`1px solid ${sp.color}`, background:sp.light, color:sp.dark, fontSize:11, fontWeight:500, whiteSpace:'nowrap', flexShrink:0 }}>
+              Use ~{effectiveW.toFixed(1)}g
+            </button>
           </div>
 
           <div style={{ background:`linear-gradient(135deg, ${sp.color}, ${sp.dark})`, borderRadius:14, padding:'18px 16px', display:'grid', gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)', gap:8, position:'relative', overflow:'hidden' }}>
@@ -190,18 +201,19 @@ export function Feed() {
 // PLAN TAB
 // ═══════════════════════════════════════════════════════════════════════════
 export function Plan() {
-  const { state, dispatch, sp, calcFeedForCycle, feedW, feedC } = useApp();
-  const { feedBought, feedBoughtInput, feedBoughtUnit } = state;
+  const { state, dispatch, sp, calcFeedForCycle, feedW } = useApp();
+  const { feedBought, feedBoughtInput, feedBoughtUnit, cnt } = state;
 
   const stIdx  = sp.stages.findIndex(st => feedW >= st.mn && feedW < st.mx);
   const curSt  = sp.stages[stIdx] || sp.stages[0];
   const nextSt = sp.stages[stIdx + 1];
-  const kgCur  = calcFeedForCycle(curSt, feedC);
-  const kgNext = nextSt ? calcFeedForCycle(nextSt, feedC) : 0;
+  const kgCur  = calcFeedForCycle(curSt, cnt);
+  const kgNext = nextSt ? calcFeedForCycle(nextSt, cnt) : 0;
   const bought    = parseFloat(feedBought[curSt.l]) || 0;
   const remaining = Math.max(0, +(kgCur - bought).toFixed(3));
   const pct       = Math.min(100, Math.round((bought / kgCur) * 100));
-  const totalKg   = sp.stages.reduce((acc,st) => acc + calcFeedForCycle(st, feedC), 0).toFixed(1);
+  const totalKg   = sp.stages.reduce((acc,st) => acc + calcFeedForCycle(st, cnt), 0).toFixed(1);
+  const totalCost = sp.stages.reduce((acc,st) => acc + calcFeedForCycle(st, cnt) * (priceMidpoint(st.price) || 0), 0);
 
   const fmt = (kg) => kg >= 1 ? `${kg.toFixed(2)} kg` : `${(kg*1000).toFixed(0)} g (${kg.toFixed(3)} kg)`;
 
@@ -228,7 +240,7 @@ export function Plan() {
       <Card elevated>
         <div style={{ padding:18 }}>
           <div style={{ fontSize:12, color:'var(--txt-2)', marginBottom:14, lineHeight:1.65 }}>
-            Based on <strong style={{ color:'var(--txt-1)' }}>{feedC} fish at {feedW}g</strong>. Plan your next shopping trip.
+            Based on <strong style={{ color:'var(--txt-1)' }}>{cnt} fish at {feedW}g</strong>. Plan your next shopping trip.
           </div>
           <div style={{ background:sp.light, borderRadius:14, padding:16, marginBottom:16 }}>
             <div style={{ fontSize:11, color:sp.dark, fontWeight:600, letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:6 }}>Current stage: {curSt.l}</div>
@@ -288,7 +300,7 @@ export function Plan() {
       <SectionHead>Full cycle feed plan</SectionHead>
       <Card>
         {sp.stages.map((st,i,arr) => {
-          const kg = calcFeedForCycle(st, feedC);
+          const kg = calcFeedForCycle(st, cnt);
           const isCur = st.l === curSt.l;
           return (
             <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 16px', borderBottom: i<arr.length-1 ? '1px solid var(--border)' : 'none', background: isCur ? sp.light : 'transparent' }}>
@@ -301,14 +313,14 @@ export function Plan() {
               </div>
               <div style={{ textAlign:'right' }}>
                 <div style={{ fontSize:14, fontWeight:500, color: isCur ? sp.color : 'var(--txt-1)' }}>{kg} kg</div>
-                <div style={{ fontSize:11, color:'var(--txt-3)' }}>≈₹{Math.round(kg*55).toLocaleString('en-IN')}</div>
+                <div style={{ fontSize:11, color:'var(--txt-3)' }}>≈₹{Math.round(kg*(priceMidpoint(st.price)||0)).toLocaleString('en-IN')}</div>
               </div>
             </div>
           );
         })}
         <div style={{ padding:'12px 16px', background:'var(--bg-surface)', display:'flex', justifyContent:'space-between', borderTop:'1px solid var(--border)' }}>
           <span style={{ fontSize:13, fontWeight:600 }}>Total for full cycle</span>
-          <span style={{ fontSize:13, fontWeight:600, color:sp.color }}>{totalKg} kg</span>
+          <span style={{ fontSize:13, fontWeight:600, color:sp.color }}>{totalKg} kg · ≈₹{Math.round(totalCost).toLocaleString('en-IN')}</span>
         </div>
       </Card>
     </div>
@@ -321,6 +333,7 @@ export function Plan() {
 export function Water() {
   const { state, dispatch, sp, getWaterStatus, waterLog } = useApp();
   const { waterHistory, waterSaved, tempOpen } = state;
+  const [waterError, setWaterError] = useState('');
 
   const target = sp.waterTargets || {};
   const params = [
@@ -333,7 +346,12 @@ export function Water() {
   ];
 
   const handleSave = () => {
-    if (!waterLog.pH) return;
+    const result = validateWaterReading(waterLog);
+    if (!result.ok) {
+      setWaterError(result.message);
+      return;
+    }
+    setWaterError('');
     dispatch({ type:'SAVE_WATER' });
     setTimeout(() => dispatch({ type:'WATER_SAVED_RESET' }), 2000);
   };
@@ -367,6 +385,11 @@ export function Water() {
             style={{ width:'100%', padding:13, borderRadius:12, background: waterSaved ? 'var(--c-ok)' : `linear-gradient(135deg, ${sp.color}, ${sp.dark})`, color:'#fff', fontSize:14, fontWeight:500, transition:'background 0.3s ease', border:'none', cursor:'pointer' }}>
             {waterSaved ? '✓ Saved successfully!' : 'Save water reading'}
           </button>
+          {waterError && (
+            <div style={{ marginTop:10, padding:'9px 12px', borderRadius:9, background:'var(--c-danger-l)', color:'var(--c-danger)', fontSize:12, lineHeight:1.6 }}>
+              {waterError}
+            </div>
+          )}
         </div>
       </Card>
 
@@ -471,7 +494,7 @@ export function Learn() {
         ))}
       </div>
 
-      {learnSub === 'ref' && <LearnRef sp={sp} />}
+      {learnSub === 'ref' && <LearnRef sp={sp} tankLitres={state.tankLitres} />}
       {learnSub === 'disease' && <LearnDisease state={state} dispatch={dispatch} />}
       {learnSub === 'scale' && <LearnScale sp={sp} state={state} dispatch={dispatch} />}
       {learnSub === 'tips' && <LearnTips sp={sp} />}
@@ -479,7 +502,7 @@ export function Learn() {
   );
 }
 
-function LearnRef({ sp }) {
+function LearnRef({ sp, tankLitres }) {
   const target = sp.waterTargets || {};
   const rows = [
     ['pH', target.pH?.[1] || '7.0–8.0', target.pH?.[2] || '< 6.5 or > 9 = danger'],
@@ -507,7 +530,7 @@ function LearnRef({ sp }) {
       <SectionHead>Essential equipment checklist</SectionHead>
       <Card>
         <div style={{ padding:'14px 16px' }}>
-          {['1000L concrete ring tank', 'Air pump ≥5W (must run 24/7)', 'Air stones × 2 across tank floor', 'Filter sump 200L with bio-media', 'Ceramic rings or bio-balls', 'pH test kit (weekly)', 'Ammonia test kit', 'Digital thermometer', sp.needsSalinity ? 'Salinity refractometer' : 'Non-iodised salt (1g/L always)', 'Dechlorinator', 'Battery inverter backup for air pump', 'Floating feeding tray'].map((e,i,arr) => (
+          {[`${Math.round(Math.max(50, tankLitres || 1000))}L concrete ring tank`, 'Air pump ≥5W (must run 24/7)', 'Air stones × 2 across tank floor', 'Filter sump 200L with bio-media', 'Ceramic rings or bio-balls', 'pH test kit (weekly)', 'Ammonia test kit', 'Digital thermometer', sp.needsSalinity ? 'Salinity refractometer' : 'Non-iodised salt (1g/L always)', 'Dechlorinator', 'Battery inverter backup for air pump', 'Floating feeding tray'].map((e,i,arr) => (
             <div key={e} style={{ display:'flex', gap:10, padding:'7px 0', borderBottom: i<arr.length-1 ? '1px solid var(--border)' : 'none', fontSize:13, alignItems:'center' }}>
               <div style={{ width:18, height:18, borderRadius:5, background:sp.light, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                 <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke={sp.color} strokeWidth="2" strokeLinecap="round"><path d="M1.5 4.5l2 2.5L8 1.5" /></svg>
@@ -580,8 +603,15 @@ function LearnDisease({ state, dispatch }) {
 }
 
 function LearnScale({ sp, state, dispatch }) {
-  const { scaleTarget } = state;
-  const tanks = Math.ceil(scaleTarget / 80);
+  const { calcFeedForCycle, getStage, feedW } = useApp();
+  const { scaleTarget, tankLitres } = state;
+  const tankLitresSafe = Math.max(50, tankLitres || 1000);
+  const perTank = Math.max(1, Math.floor(tankLitresSafe * 0.08));
+  const tanks = Math.ceil(scaleTarget / perTank);
+  const stage = getStage(feedW);
+  const stageDays = Math.max(1, Math.round((stage.mx - stage.mn) / (sp.growthRatePerDay[stage.l] || 1)));
+  const feedMonthRs = Math.round((calcFeedForCycle(stage, scaleTarget) / stageDays) * 30 * (priceMidpoint(stage.price) || 0));
+  const seedPrice = sp.name.includes('Karimeen') ? 4 : sp.name.includes('Seabass') ? 30 : 2;
   return (
     <>
       <Card elevated>
@@ -597,7 +627,7 @@ function LearnScale({ sp, state, dispatch }) {
           </div>
           <div style={{ fontSize:36, fontWeight:600, color:sp.color, textAlign:'center', margin:'10px 0', letterSpacing:'-0.02em' }}>{scaleTarget} fish</div>
           <div style={{ display:'grid', gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr)', gap:8 }}>
-            {[['Tanks needed', tanks+'×1000L'], ['Total water', (tanks*1000)+'L'], ['Filter volume', (tanks*200)+'L'], sp.needsSalinity ? ['Marine salt', tanks*12+'kg'] : ['Salt/month', tanks+'kg']].map(([l,v]) => (
+            {[['Tanks needed', tanks+'×'+tankLitresSafe+'L'], ['Total water', (tanks*tankLitresSafe)+'L'], ['Filter volume', (tanks*Math.round(tankLitresSafe*0.2))+'L'], sp.needsSalinity ? ['Marine salt', tanks*12+'kg'] : ['Salt/month', tanks+'kg']].map(([l,v]) => (
               <StatCard key={l} label={l} value={v} accent={sp.color} />
             ))}
           </div>
@@ -605,7 +635,7 @@ function LearnScale({ sp, state, dispatch }) {
       </Card>
       <Card>
         <div style={{ padding:'14px 16px' }}>
-          {[['FRP tanks ×'+tanks,'₹'+(tanks*7000).toLocaleString('en-IN')],['Air pumps','₹'+(tanks*1800).toLocaleString('en-IN')],['Filter pumps','₹'+(tanks*2500).toLocaleString('en-IN')],['Bio-media','₹'+(tanks*2000).toLocaleString('en-IN')],['Fingerlings ('+scaleTarget+')','₹'+(scaleTarget*(sp.name.includes('Karimeen') ? 4 : sp.name.includes('Seabass') ? 30 : sp.name.includes('Shrimp') ? 2 : 2)).toLocaleString('en-IN')],['Feed/month','₹'+Math.round(scaleTarget*5*0.03*30*65/1000).toLocaleString('en-IN')],['Electricity/month','₹'+(tanks*1200).toLocaleString('en-IN')]].map(([l,v],i,arr) => (
+          {[['FRP tanks ×'+tanks,'₹'+Math.round(tanks*7000*tankLitresSafe/1000).toLocaleString('en-IN')],['Air pumps','₹'+(tanks*1800).toLocaleString('en-IN')],['Filter pumps','₹'+(tanks*2500).toLocaleString('en-IN')],['Bio-media','₹'+(tanks*2000).toLocaleString('en-IN')],['Fingerlings ('+scaleTarget+')','₹'+(scaleTarget*seedPrice).toLocaleString('en-IN')],['Feed/month','₹'+feedMonthRs.toLocaleString('en-IN')],['Electricity/month','₹'+(tanks*1200).toLocaleString('en-IN')]].map(([l,v],i,arr) => (
             <InfoRow key={l} label={l} value={v} border={i<arr.length-1} />
           ))}
         </div>

@@ -1,6 +1,7 @@
 import { useApp } from '../AppContext';
 import { SectionHead, Card, ProgressBar, Checkbox, AlertBanner } from './UI';
 import { GIFT_NATURAL_FEEDS } from '../data';
+import { daysBetween, formatIsoDate } from '../lib/dates';
 
 const CAT_COLORS = {
   water:'#185FA5', health:'#DC2626', feed:'#854F0B',
@@ -53,7 +54,7 @@ export default function Today() {
 
   // Days since anchor
   const daysSinceLog = projectionAnchorDate
-    ? Math.floor((Date.now() - new Date(projectionAnchorDate)) / 86400000)
+    ? daysBetween(projectionAnchorDate)
     : null;
 
   return (
@@ -116,7 +117,7 @@ export default function Today() {
             </div>
             <div style={{ fontSize:11, color:'var(--txt-3)', marginTop:10, lineHeight:1.6 }}>
               Current estimated weight: <strong style={{ color:sp.color }}>~{effectiveW.toFixed(1)}g</strong>
-              {projectionAnchorDate && ` · Based on ${new Date(projectionAnchorDate).toLocaleDateString('en-IN')}`}
+              {projectionAnchorDate && ` · Based on ${formatIsoDate(projectionAnchorDate)}`}
             </div>
           </div>
         </Card>

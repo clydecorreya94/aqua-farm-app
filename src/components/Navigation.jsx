@@ -21,7 +21,7 @@ const THEME_CYCLE = { auto: 'light', light: 'dark', dark: 'auto' };
 
 export function Sidebar() {
   const { state, dispatch, sp, currentStage, dailyFeed, perMeal, getGreeting, meals, effectiveW } = useApp();
-  const { tab, cnt, theme } = state;
+  const { tab, cnt, theme, tankLitres } = state;
   const { pct } = getCompletion(state, currentStage, meals);
 
   const cycleTheme = () => dispatch({ type: 'SET_THEME', theme: THEME_CYCLE[theme] });
@@ -34,7 +34,7 @@ export function Sidebar() {
           <div style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg, ${sp.color}, ${sp.dark})`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: `0 4px 12px ${sp.color}35`, fontSize: 18 }}>🐟</div>
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--txt-1)' }}>Clyde's AquaFarm</div>
-            <div style={{ fontSize: 10, color: 'var(--txt-3)' }}>Kerala · 1000L Tank</div>
+            <div style={{ fontSize: 10, color: 'var(--txt-3)' }}>Kerala · {tankLitres}L Tank</div>
           </div>
           {/* Theme toggle */}
           <button onClick={cycleTheme} title={`Theme: ${theme}`}

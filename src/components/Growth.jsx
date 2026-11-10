@@ -1,6 +1,7 @@
 import { useApp } from '../AppContext';
 import { SectionHead, Card, StatCard, GrowthRing, Sparkline, DeleteBtn } from './UI';
-import { CM_REF } from '../data';
+import { CM_REF, cmToG } from '../data';
+import { daysBetween, formatIsoDate } from '../lib/dates';
 
 export default function Growth() {
   const { state, dispatch, sp, currentStage, dailyFeed, perMeal, getStage, effectiveW, projectedW, growthProjections, projectionAnchorDate, projectionAnchorWeight } = useApp();
@@ -11,27 +12,11 @@ export default function Growth() {
   const weightEntries = growthLog.filter(g => g.type === 'weight');
   const sparkData = weightEntries.length >= 2 ? [...weightEntries].reverse().slice(0, 8).map(g => g.w) : null;
 
-  const { cmToEstimatedG } = (() => {
-    const { CM_LUT } = { CM_LUT: {1:.05,1.5:.1,2:.2,2.5:.4,3:.7,3.5:1.1,4:1.6,4.5:2.2,5:3,5.5:4,6:5.5,7:8,8:12,9:18,10:25} };
-    return {
-      cmToEstimatedG: (cm) => {
-        const keys = Object.keys(CM_LUT).map(Number).sort((a,b)=>a-b);
-        if (cm <= keys[0]) return CM_LUT[keys[0]];
-        if (cm >= keys[keys.length-1]) return CM_LUT[keys[keys.length-1]];
-        for (let i=0; i<keys.length-1; i++) {
-          const lo=keys[i],hi=keys[i+1];
-          if (cm>=lo && cm<=hi) { const t=(cm-lo)/(hi-lo); return +(CM_LUT[lo]+t*(CM_LUT[hi]-CM_LUT[lo])).toFixed(2); }
-        }
-        return 0;
-      }
-    };
-  })();
-
-  const cmPreview = cmInput ? cmToEstimatedG(parseFloat(cmInput) || 0) : null;
+  const cmPreview = cmInput ? cmToG(parseFloat(cmInput) || 0) : null;
 
   // Days since last log
   const lastLog = growthLog[0];
-  const daysSinceLastLog = lastLog ? Math.floor((Date.now() - new Date(lastLog.iso || Date.now())) / 86400000) : null;
+  const daysSinceLastLog = lastLog?.iso ? daysBetween(lastLog.iso) : null;
 
   // Suggestion based on current stage
   const suggestion = () => {
@@ -194,7 +179,7 @@ export default function Growth() {
             <div style={{ padding:'6px 0' }}>
               {projectionAnchorDate && (
                 <div style={{ padding:'10px 16px 6px', fontSize:11, color:'var(--txt-3)', borderBottom:'1px solid var(--border)' }}>
-                  Projected from {new Date(projectionAnchorDate).toLocaleDateString('en-IN')} · {projectionAnchorWeight}g starting weight
+                  Projected from {formatIsoDate(projectionAnchorDate)} · {projectionAnchorWeight}g starting weight
                 </div>
               )}
               {upcomingProjections.map((m, i) => (
